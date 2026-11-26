@@ -14,7 +14,7 @@ class HooteryAgentServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/hootery-agent.php', 'hootery-agent');
+        $this->mergeConfigFrom(__DIR__.'/../config/hootery.php', 'hootery');
 
         $this->app->singleton(HooteryAgent::class);
     }
@@ -29,7 +29,7 @@ class HooteryAgentServiceProvider extends ServiceProvider
         }
 
         $this->publishes([
-            __DIR__.'/../config/hootery-agent.php' => config_path('hootery-agent.php'),
+            __DIR__.'/../config/hootery.php' => config_path('hootery.php'),
         ], ['hootery-agent', 'hootery-agent-config']);
 
         $this->commands([

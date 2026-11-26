@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Support\Facades\File;
+use Siw\HooteryAgent\HooteryAgent;
+
+it('merges the agent config under the hootery key with safe defaults', function () {
+    expect(config('hootery'))->toBe([
+        'enabled' => true,
+        'url' => null,
+        'token' => null,
+        'timeout' => 1.0,
+    ]);
+});
+
+it('publishes the config file as config/hootery.php', function () {
+    File::delete(config_path('hootery.php'));
+
+    $this->artisan('vendor:publish', ['--tag' => 'hootery-agent-config'])->assertSuccessful();
+
+    expect(File::exists(config_path('hootery.php')))->toBeTrue();
+
+    File::delete(config_path('hootery.php'));
+});
+
+it('is enabled once switched on with a url and a token', function () {
+    config(['hootery.url' => 'https://hootery.test', 'hootery.token' => '1|secret']);
+
+    expect(app(HooteryAgent::class)->isEnabled())->toBeTrue();
+});
+
+it('stays silent without a url, without a token or when switched off', function (array $overrides) {
+    config(['hootery.url' => 'https://hootery.test', 'hootery.token' => '1|secret', ...$overrides]);
+
+    expect(app(HooteryAgent::class)->isEnabled())->toBeFalse();
+})->with([
+    'no url' => [['hootery.url' => null]],
+    'empty url' => [['hootery.url' => '']],
+    'no token' => [['hootery.token' => null]],
+    'empty token' => [['hootery.token' => '']],
+    'switched off' => [['hootery.enabled' => false]],
+]);
