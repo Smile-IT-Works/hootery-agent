@@ -6,7 +6,7 @@
     <a href="https://packagist.org/packages/siw/hootery-agent"><img src="https://img.shields.io/packagist/v/siw/hootery-agent.svg?style=flat-square" alt="Packagist"></a>
     <a href="https://packagist.org/packages/siw/hootery-agent"><img src="https://img.shields.io/packagist/php-v/siw/hootery-agent.svg?style=flat-square" alt="PHP from Packagist"></a>
     <a href="https://packagist.org/packages/siw/hootery-agent"><img src="https://badge.laravel.cloud/badge/siw/hootery-agent?style=flat" alt="Laravel versions"></a>
-    <a href="https://github.com/siw/hootery-agent/actions"><img alt="GitHub Workflow Status (main)" src="https://img.shields.io/github/actions/workflow/status/siw/hootery-agent/tests.yml?branch=main&label=Tests&style=flat-square"></a>
+    <a href="https://github.com/Smile-IT-Works/hootery-agent/actions"><img alt="GitHub Workflow Status (main)" src="https://img.shields.io/github/actions/workflow/status/Smile-IT-Works/hootery-agent/tests.yml?branch=main&label=Tests&style=flat-square"></a>
     <a href="https://packagist.org/packages/siw/hootery-agent"><img src="https://img.shields.io/packagist/dt/siw/hootery-agent.svg?style=flat-square" alt="Total Downloads"></a>
 </p>
 
@@ -52,7 +52,7 @@ Please review [our security policy](.github/SECURITY.md) on how to report securi
 
 ## Credits
 
-- [Pavol Bucko](https://github.com/siw)
+- [Pavol Bucko](https://github.com/pbucko1)
 - [All Contributors](../../contributors)
 
 ## License
