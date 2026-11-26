@@ -232,3 +232,34 @@ it('logs events the server rejected, with its reasons, so a drifted clock shows 
         && $context['rejected'] === 1
         && isset($context['errors']['0']['occurred_at']));
 });
+
+it('skips the request event of an ignored path, by default Laravel Boost\'s dev tool', function () {
+    Route::post('/_boost/browser-logs', fn () => 'logged');
+
+    $this->post('/_boost/browser-logs')->assertOk();
+
+    Http::assertNothingSent();
+});
+
+it('skips the paths listed in the config', function () {
+    config(['hootery.ignore_paths' => ['health', 'internal/*']]);
+    Route::get('/health', fn () => 'ok');
+    Route::get('/internal/metrics', fn () => 'ok');
+
+    $this->get('/health')->assertOk();
+    $this->get('/internal/metrics')->assertOk();
+    $this->get('/tournaments/17')->assertOk();
+
+    expect(sentEvents())->toHaveCount(1)
+        ->and(sentEvents()[0]['path'])->toBe('/tournaments/{tournament}');
+});
+
+it('still sends an exception that happened during an ignored request', function () {
+    config(['hootery.ignore_paths' => ['health']]);
+    Route::get('/health', fn () => throw new RuntimeException('Health check broke'));
+
+    $this->get('/health')->assertServerError();
+
+    expect(sentEvents())->toHaveCount(1)
+        ->and(sentEvents()[0])->type->toBe('exception')->message->toBe('Health check broke');
+});
