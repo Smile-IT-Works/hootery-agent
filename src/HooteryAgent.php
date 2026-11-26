@@ -95,9 +95,13 @@ class HooteryAgent
                 return;
             }
 
-            $this->events[] = $this->requestEvent($startedAt, $request, $response);
+            if (! $request->is(...(array) config('hootery.ignore_paths', []))) {
+                $this->events[] = $this->requestEvent($startedAt, $request, $response);
+            }
 
-            $this->send();
+            if ($this->events !== []) {
+                $this->send();
+            }
         } catch (Throwable) {
             $this->events = [];
             $this->traceId = null;

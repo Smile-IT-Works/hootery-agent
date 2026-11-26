@@ -23,6 +23,16 @@ return [
     'token' => env('HOOTERY_TOKEN'),
 
     /*
+    | Request paths whose request events are never sent, as patterns for
+    | Request::is(). An exception during such a request is still sent. Keep
+    | them narrow: a broad pattern silently drops real pages.
+    */
+
+    'ignore_paths' => [
+        '_boost/*',
+    ],
+
+    /*
     | The post is sent after the response (under PHP-FPM the visitor already
     | has the page), but the worker that served the page waits for it. These
     | budgets cap that wait: the connect timeout bounds an unreachable

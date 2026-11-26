@@ -53,6 +53,8 @@ HOOTERY_TOKEN=1|xxxxxxxx
 
 The agent stays silent until it has both a URL and a token, so installing the package alone never affects the app.
 
+To skip requests that are noise, list their paths in `ignore_paths` in the published `config/hootery.php`, as patterns for `Request::is()` (the default skips Laravel Boost's dev tool, `_boost/*`). Only the request event is skipped: an exception during such a request is still sent. Keep the patterns narrow, since a broad one silently drops real pages.
+
 The agent posts each request's events after the response is sent. Under PHP-FPM (and LiteSpeed) the visitor already has the page by then; under Apache mod_php or `php artisan serve` the connection can stay open until the post is done. Either way the PHP worker that served the page waits, for up to the timeouts above. A failed or slow post is dropped, never retried. On a busy production site, keep the timeouts low: until the agent batches its posts, a struggling Hootery server costs every page view up to that much worker time.
 
 Check the connection:
