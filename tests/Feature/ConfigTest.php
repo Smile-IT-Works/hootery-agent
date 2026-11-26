@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\File;
+use Illuminate\Support\ServiceProvider;
 use Siw\HooteryAgent\HooteryAgent;
+use Siw\HooteryAgent\HooteryAgentServiceProvider;
 
 it('merges the agent config under the hootery key with safe defaults', function () {
     expect(config('hootery'))->toBe([
@@ -16,15 +17,15 @@ it('merges the agent config under the hootery key with safe defaults', function 
     ]);
 });
 
-it('publishes the config file as config/hootery.php', function () {
-    File::delete(config_path('hootery.php'));
+it('publishes the config file as config/hootery.php', function (string $tag) {
+    // Checked on the mapping, not by publishing: a file written into the
+    // skeleton's config folder is loaded by every parallel worker.
+    $paths = ServiceProvider::pathsToPublish(HooteryAgentServiceProvider::class, $tag);
 
-    $this->artisan('vendor:publish', ['--tag' => 'hootery-agent-config'])->assertSuccessful();
-
-    expect(File::exists(config_path('hootery.php')))->toBeTrue();
-
-    File::delete(config_path('hootery.php'));
-});
+    expect($paths)->toHaveCount(1)
+        ->and(realpath(array_key_first($paths)))->toBe(realpath(dirname(__DIR__, 2).'/config/hootery.php'))
+        ->and(array_values($paths))->toBe([config_path('hootery.php')]);
+})->with(['hootery-agent', 'hootery-agent-config']);
 
 it('is enabled once switched on with a url and a token', function () {
     config(['hootery.url' => 'https://hootery.test', 'hootery.token' => '1|secret']);
