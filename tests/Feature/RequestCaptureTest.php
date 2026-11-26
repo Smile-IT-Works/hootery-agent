@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -157,4 +158,77 @@ it('logs nothing when the send succeeds', function () {
     $this->get('/tournaments/17')->assertOk();
 
     Log::shouldNotHaveReceived('warning');
+});
+
+it('measures how long the request took', function () {
+    Route::get('/slow', function () {
+        test()->travel(250)->milliseconds();
+
+        return 'ok';
+    });
+
+    $this->get('/slow')->assertOk();
+
+    expect(sentEvents()[0]['duration_ms'])->toBe(250);
+});
+
+it('reports the peak memory of this request, not of the whole worker', function () {
+    $large = str_repeat('x', 64 * 1024 * 1024);
+    unset($large);
+    $workerPeak = memory_get_peak_usage(true);
+
+    $this->get('/tournaments/17')->assertOk();
+
+    expect(memory_get_peak_usage(true))->toBeLessThan($workerPeak);
+});
+
+it('masks secrets carried in the path, such as a password reset token', function () {
+    Route::get('/reset-password/{token}', fn () => 'reset');
+    Route::get('/invites/{invite}/accept/{signature}', fn () => 'accept');
+
+    $this->get('/reset-password/live-reset-token-123')->assertOk();
+    $this->get('/invites/7/accept/abc-signature')->assertOk();
+
+    $posts = Http::recorded(fn (Request $request): bool => str_ends_with($request->url(), '/api/ingest'));
+    expect($posts[0][0]->data()['events'][0]['payload']['url_path'])->toBe('/reset-password/{token}')
+        ->and($posts[1][0]->data()['events'][0]['payload']['url_path'])->toBe('/invites/7/accept/{signature}')
+        ->and(json_encode($posts->map(fn ($post) => $post[0]->data())->all()))->not->toContain('live-reset-token-123')->not->toContain('abc-signature');
+});
+
+it('cuts a path longer than the server accepts', function () {
+    $this->get('/'.str_repeat('a', 3000))->assertNotFound();
+
+    expect(mb_strlen(sentEvents()[0]['path']))->toBe(2048)
+        ->and(mb_strlen(sentEvents()[0]['payload']['url_path']))->toBe(2048);
+});
+
+it('logs a send that fails for any other reason', function () {
+    Log::spy();
+    $this->serverReply = fn () => throw new RuntimeException('A host middleware broke');
+
+    $this->get('/tournaments/17')->assertOk();
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context): bool => $message === 'Hootery agent could not deliver events'
+        && $context['error'] === 'A host middleware broke');
+});
+
+it('masks a secret route parameter even when route binding turned it into an object', function () {
+    Route::bind('token', fn (string $value): object => (object) ['value' => $value]);
+    Route::get('/magic/{token}', fn () => 'in')->middleware(SubstituteBindings::class);
+
+    $this->get('/magic/live-magic-token')->assertOk();
+
+    expect(sentEvents()[0]['payload']['url_path'])->toBe('/magic/{token}')
+        ->and(json_encode(sentEvents()))->not->toContain('live-magic-token');
+});
+
+it('logs events the server rejected, with its reasons, so a drifted clock shows up in the app log', function () {
+    Log::spy();
+    $this->serverReply = Http::response(['accepted' => 0, 'rejected' => 1, 'errors' => ['0' => ['occurred_at' => ['The events.0.occurred_at field must be a date after or equal to -7 days.']]]], 202);
+
+    $this->get('/tournaments/17')->assertOk();
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context): bool => $message === 'Hootery server rejected events'
+        && $context['rejected'] === 1
+        && isset($context['errors']['0']['occurred_at']));
 });
