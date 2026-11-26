@@ -161,6 +161,8 @@ it('logs nothing when the send succeeds', function () {
 });
 
 it('measures how long the request took', function () {
+    // Frozen, so only the 250 ms the route travels counts, never real time.
+    $this->freezeTime();
     Route::get('/slow', function () {
         test()->travel(250)->milliseconds();
 
