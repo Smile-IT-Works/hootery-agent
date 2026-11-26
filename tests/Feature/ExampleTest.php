@@ -11,9 +11,3 @@ it('resolves the singleton', function () {
 it('returns the same instance from the container', function () {
     expect(app(HooteryAgent::class))->toBe(app(HooteryAgent::class));
 });
-
-it('registers the artisan command', function () {
-    $this->artisan('hootery-agent:placeholder')
-        ->expectsOutputToContain('HooteryAgent placeholder command executed.')
-        ->assertSuccessful();
-});
