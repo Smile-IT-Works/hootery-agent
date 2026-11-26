@@ -41,7 +41,7 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, fileinfo, sqlite, pdo_sqlite, bcmath, intl
           ini-values: error_reporting=E_ALL
           tools: composer:v2
-          coverage: none
+          coverage: pcov
 
       - name: Install dependencies
         run: |
@@ -58,5 +58,5 @@ jobs:
       - name: Type Coverage
         run: composer test:types
 
-      - name: Test Suite
-        run: composer test:unit
+      - name: Test Suite with coverage
+        run: composer test:coverage

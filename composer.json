@@ -8,7 +8,7 @@
         "hootery-agent"
     ],
     "homepage": "https://github.com/Smile-IT-Works/hootery-agent",
-    "license": "MIT",
+    "license": "proprietary",
     "authors": [
         {
             "name": "Pavol Bucko",
@@ -74,11 +74,20 @@
         "test:unit": [
             "vendor/bin/pest --parallel"
         ],
+        "test:coverage": [
+            "@php -d pcov.enabled=1 vendor/bin/pest --parallel --coverage --min=85 --passthru-php=\"'-d' 'pcov.enabled=1'\""
+        ],
         "test": [
             "@analyse",
             "@lint:check",
             "@test:types",
             "@test:unit"
+        ],
+        "ci:check": [
+            "@analyse",
+            "@lint:check",
+            "@test:types",
+            "@test:coverage"
         ],
         "clear": [
             "@php vendor/bin/testbench package:purge-skeleton --ansi"

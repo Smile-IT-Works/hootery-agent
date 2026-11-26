@@ -2,23 +2,28 @@
     <h1>Hootery Agent</h1>
 </div>
 
-<p align="center">
-    <a href="https://packagist.org/packages/siw/hootery-agent"><img src="https://img.shields.io/packagist/v/siw/hootery-agent.svg?style=flat-square" alt="Packagist"></a>
-    <a href="https://packagist.org/packages/siw/hootery-agent"><img src="https://img.shields.io/packagist/php-v/siw/hootery-agent.svg?style=flat-square" alt="PHP from Packagist"></a>
-    <a href="https://packagist.org/packages/siw/hootery-agent"><img src="https://badge.laravel.cloud/badge/siw/hootery-agent?style=flat" alt="Laravel versions"></a>
-    <a href="https://github.com/Smile-IT-Works/hootery-agent/actions"><img alt="GitHub Workflow Status (main)" src="https://img.shields.io/github/actions/workflow/status/Smile-IT-Works/hootery-agent/tests.yml?branch=main&label=Tests&style=flat-square"></a>
-    <a href="https://packagist.org/packages/siw/hootery-agent"><img src="https://img.shields.io/packagist/dt/siw/hootery-agent.svg?style=flat-square" alt="Total Downloads"></a>
-</p>
-
 Captures requests and exceptions and sends them to a Hootery cloud.
 
 ## Installation
 
-You can install the package via Composer:
+The package is private, so Composer fetches it from its GitHub repository. Add the repository to the app's `composer.json`:
+
+```json
+"repositories": [
+    {
+        "type": "vcs",
+        "url": "git@github.com:Smile-IT-Works/hootery-agent.git"
+    }
+]
+```
+
+Then require it:
 
 ```bash
-composer require siw/hootery-agent
+composer require siw/hootery-agent:dev-main
 ```
+
+The machine that runs `composer install` (a developer's laptop, a deploy server) needs read access to that repository.
 
 You may publish all of the package's resources at once:
 
@@ -112,4 +117,4 @@ Please review [our security policy](.github/SECURITY.md) on how to report securi
 
 ## License
 
-Hootery Agent is open-sourced software licensed under the [MIT license](LICENSE.md).
+Proprietary. All rights reserved.
