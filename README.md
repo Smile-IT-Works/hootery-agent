@@ -52,6 +52,14 @@ HOOTERY_TOKEN=1|xxxxxxxx
 
 The agent stays silent until it has both a URL and a token, so installing the package alone never affects the app.
 
+Check the connection:
+
+```bash
+php artisan hootery:test
+```
+
+It prints the project and environment the token belongs to, warns when that environment differs from the app's `APP_ENV`, and exits with a failure code when the agent is off, not set up, rejected or unreachable, so it can guard a deploy script.
+
 ## Usage
 
 <!-- Add a basic usage example here. -->

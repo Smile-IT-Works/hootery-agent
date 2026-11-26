@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Siw\HooteryAgent;
 
 use Illuminate\Support\ServiceProvider;
-use Siw\HooteryAgent\Console\Commands\HooteryAgentCommand;
+use Siw\HooteryAgent\Console\Commands\TestConnectionCommand;
 
 class HooteryAgentServiceProvider extends ServiceProvider
 {
@@ -33,7 +33,7 @@ class HooteryAgentServiceProvider extends ServiceProvider
         ], ['hootery-agent', 'hootery-agent-config']);
 
         $this->commands([
-            HooteryAgentCommand::class,
+            TestConnectionCommand::class,
         ]);
     }
 }
