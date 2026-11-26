@@ -10,7 +10,8 @@ it('merges the agent config under the hootery key with safe defaults', function 
         'enabled' => true,
         'url' => null,
         'token' => null,
-        'timeout' => 1.0,
+        'connect_timeout' => 0.2,
+        'timeout' => 0.5,
     ]);
 });
 
@@ -40,4 +41,16 @@ it('stays silent without a url, without a token or when switched off', function 
     'no token' => [['hootery.token' => null]],
     'empty token' => [['hootery.token' => '']],
     'switched off' => [['hootery.enabled' => false]],
+]);
+
+it('reads the usual ways of writing on and off in HOOTERY_ENABLED', function (string $value, bool $enabled) {
+    $_SERVER['HOOTERY_ENABLED'] = $_ENV['HOOTERY_ENABLED'] = $value;
+
+    $config = require dirname(__DIR__, 2).'/config/hootery.php';
+
+    unset($_SERVER['HOOTERY_ENABLED'], $_ENV['HOOTERY_ENABLED']);
+    expect($config['enabled'])->toBe($enabled);
+})->with([
+    ['true', true], ['1', true], ['on', true], ['yes', true],
+    ['false', false], ['0', false], ['off', false], ['no', false],
 ]);

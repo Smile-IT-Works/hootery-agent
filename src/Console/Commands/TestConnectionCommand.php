@@ -45,6 +45,7 @@ class TestConnectionCommand extends Command
         try {
             $response = Http::acceptJson()
                 ->withToken($token)
+                ->connectTimeout(config()->float('hootery.connect_timeout'))
                 ->timeout(config()->float('hootery.timeout'))
                 ->get(rtrim($url, '/').'/api/ping');
         } catch (ConnectionException) {

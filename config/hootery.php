@@ -16,17 +16,21 @@ return [
     |
     */
 
-    'enabled' => env('HOOTERY_ENABLED', true),
+    'enabled' => filter_var(env('HOOTERY_ENABLED', true), FILTER_VALIDATE_BOOL),
 
     'url' => env('HOOTERY_URL'),
 
     'token' => env('HOOTERY_TOKEN'),
 
     /*
-    | Seconds one post to the server may take before it is given up, so a
-    | slow or unreachable server never holds up a worker for long.
+    | The post is sent after the response (under PHP-FPM the visitor already
+    | has the page), but the worker that served the page waits for it. These
+    | budgets cap that wait: the connect timeout bounds an unreachable
+    | server, the timeout a slow one.
     */
 
-    'timeout' => (float) env('HOOTERY_TIMEOUT', 1.0),
+    'connect_timeout' => (float) env('HOOTERY_CONNECT_TIMEOUT', 0.2),
+
+    'timeout' => (float) env('HOOTERY_TIMEOUT', 0.5),
 
 ];
