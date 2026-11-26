@@ -175,13 +175,21 @@ it('measures how long the request took', function () {
 });
 
 it('reports the peak memory of this request, not of the whole worker', function () {
-    $large = str_repeat('x', 64 * 1024 * 1024);
-    unset($large);
-    $workerPeak = memory_get_peak_usage(true);
+    Route::get('/heavy', function () {
+        $large = str_repeat('x', 16 * 1024 * 1024);
 
+        return (string) strlen($large);
+    });
+    memory_reset_peak_usage();
+
+    $this->get('/heavy')->assertOk();
     $this->get('/tournaments/17')->assertOk();
 
-    expect(memory_get_peak_usage(true))->toBeLessThan($workerPeak);
+    $posts = Http::recorded(fn (Request $request): bool => str_ends_with($request->url(), '/api/ingest'));
+    $heavyPeak = $posts[0][0]->data()['events'][0]['payload']['peak_memory_bytes'];
+    $lightPeak = $posts[1][0]->data()['events'][0]['payload']['peak_memory_bytes'];
+    expect($heavyPeak)->toBeGreaterThan(16 * 1024 * 1024)
+        ->and($lightPeak)->toBeLessThan($heavyPeak);
 });
 
 it('masks secrets carried in the path, such as a password reset token', function () {
@@ -265,3 +273,72 @@ it('still sends an exception that happened during an ignored request', function 
     expect(sentEvents())->toHaveCount(1)
         ->and(sentEvents()[0])->type->toBe('exception')->message->toBe('Health check broke');
 });
+
+it('masks only the secret parameter, wherever its value appears elsewhere in the path', function (string $route, string $path, string $expected) {
+    Route::get($route, fn () => 'ok');
+
+    $this->get($path)->assertOk();
+
+    expect(sentEvents()[0]['payload']['url_path'])->toBe($expected);
+})->with([
+    'value inside another segment' => ['/r/{slug}/{token}', '/r/abc/ab', '/r/abc/{token}'],
+    'same value in a plain parameter' => ['/teams/{team}/join/{token}', '/teams/42/join/42', '/teams/42/join/{token}'],
+    'secret not after a slash' => ['/dl/t-{token}', '/dl/t-live-download-token', '/dl/t-{token}'],
+    'optional secret left out' => ['/share/{id}/{key?}', '/share/9', '/share/9'],
+]);
+
+it('leaves the work done after the response out of the duration', function () {
+    $this->freezeTime();
+    Route::get('/slow', function () {
+        test()->travel(250)->milliseconds();
+
+        return 'ok';
+    });
+    app()->terminating(fn () => test()->travel(1000)->milliseconds());
+
+    $this->get('/slow')->assertOk();
+
+    expect(sentEvents()[0]['duration_ms'])->toBe(250);
+});
+
+it('never follows a redirect, so the token goes to the configured server only', function () {
+    Log::spy();
+    $this->serverReply = fn (Request $request) => str_starts_with($request->url(), 'https://hootery.example.com')
+        ? Http::response('', 301, ['Location' => 'https://elsewhere.example.com/api/ingest'])
+        : Http::response(['accepted' => 1, 'rejected' => 0], 202);
+
+    $this->get('/tournaments/17')->assertOk();
+
+    expect(Http::recorded())->toHaveCount(1);
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context): bool => $message === 'Hootery agent could not deliver events'
+        && $context['status'] === 301);
+});
+
+it('logs a reply that is not the ingest answer, such as a wrong host answering with a page', function () {
+    Log::spy();
+    $this->serverReply = Http::response('<html>Welcome</html>', 200);
+
+    $this->get('/tournaments/17')->assertOk();
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context): bool => $message === 'Hootery agent could not deliver events'
+        && $context['status'] === 200);
+});
+
+it('skips Laravel\'s health check by default, as uptime probes would flood the dashboard', function () {
+    Route::get('/up', fn () => 'ok');
+
+    $this->get('/up')->assertOk();
+
+    Http::assertNothingSent();
+});
+
+it('keeps the real path as it came when no parameter looks secret', function (string $route, string $path, string $expected) {
+    Route::get($route, fn () => 'ok')->defaults('lang', 'en');
+
+    $this->get($path)->assertOk();
+
+    expect(sentEvents()[0]['payload']['url_path'])->toBe($expected);
+})->with([
+    'encoded value' => ['/files/{name}', '/files/my%20report', '/files/my%20report'],
+    'default for a left-out parameter' => ['/docs/{lang?}', '/docs', '/docs'],
+]);

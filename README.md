@@ -53,7 +53,7 @@ HOOTERY_TOKEN=1|xxxxxxxx
 
 The agent stays silent until it has both a URL and a token, so installing the package alone never affects the app.
 
-To skip requests that are noise, list their paths in `ignore_paths` in the published `config/hootery.php`, as patterns for `Request::is()` (the default skips Laravel Boost's dev tool, `_boost/*`). Only the request event is skipped: an exception during such a request is still sent. Keep the patterns narrow, since a broad one silently drops real pages.
+To skip requests that are noise, list their paths in `ignore_paths` in the published `config/hootery.php`, as patterns for `Request::is()` (the default skips Laravel Boost's dev tool, `_boost/*`, and Laravel's health check, `up`). Only the request event is skipped: an exception during such a request is still sent. Keep the patterns narrow, since a broad one silently drops real pages.
 
 The agent posts each request's events after the response is sent. Under PHP-FPM (and LiteSpeed) the visitor already has the page by then; under Apache mod_php or `php artisan serve` the connection can stay open until the post is done. Either way the PHP worker that served the page waits, for up to the timeouts above. A failed or slow post is dropped, never retried. On a busy production site, keep the timeouts low: until the agent batches its posts, a struggling Hootery server costs every page view up to that much worker time.
 
@@ -79,9 +79,9 @@ Laravel runs the request lifecycle in feature tests too, so with `HOOTERY_URL` a
 
 Nothing needs calling: once configured, the agent hooks into Laravel's HTTP kernel and exception handler.
 
-**Requests.** After every response is sent, one `request` event: method, the route pattern as `path` (`/tournaments/{tournament}`, so all visits to one page group together), status code, duration and start time (UTC, microseconds). The payload adds the real path (`/tournaments/17`), the route name and action, and the request's peak memory. The query string is never sent, and the value of a route parameter whose name looks secret (`token`, `signature`, `secret`, `hash`, `password`, `key`) is replaced by its name, so a password-reset link arrives as `/reset-password/{token}`. Paths are cut at 2048 characters.
+**Requests.** After every response is sent, one `request` event: method, the route pattern as `path` (`/tournaments/{tournament}`, so all visits to one page group together), status code, duration (until the app has its response, so the work after it is left out) and start time (UTC, microseconds). The payload adds the real path (`/tournaments/17`), the route name and action, and the request's peak memory. The query string is never sent, and the value of a route parameter whose name looks secret (`token`, `signature`, `secret`, `hash`, `password`, `key`) is replaced by its name, so a password-reset link arrives as `/reset-password/{token}`. Paths are cut at 2048 characters.
 
-**Exceptions.** Every exception the app reports, as an `exception` event: class, message (up to 65 535 characters), code, file and line, the PHP and Laravel versions, and a trace of up to 50 frames naming places and calls only, never argument values. Paths are relative to the app. An exception thrown while rendering a view is unwrapped to its real cause.
+**Exceptions.** Every exception the app reports, as an `exception` event: class, message (up to 65 535 characters), code, file and line, the PHP and Laravel versions, and a trace of up to 50 frames naming places and calls only, never argument values. Paths are relative to the app. An exception thrown while rendering a view is unwrapped to its real cause. A fatal error (out of memory, a time limit) is sent at once, since the request it ends never finishes.
 
 A request and the exceptions reported during it share one `trace_id` and travel to the server in the same post.
 

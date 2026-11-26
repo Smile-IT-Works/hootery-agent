@@ -10,7 +10,7 @@ it('merges the agent config under the hootery key with safe defaults', function 
         'enabled' => true,
         'url' => null,
         'token' => null,
-        'ignore_paths' => ['_boost/*'],
+        'ignore_paths' => ['_boost/*', 'up'],
         'connect_timeout' => 0.2,
         'timeout' => 0.5,
     ]);

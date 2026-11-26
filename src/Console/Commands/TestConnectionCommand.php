@@ -43,13 +43,15 @@ class TestConnectionCommand extends Command
         }
 
         try {
+            // Never redirected: a redirect would carry the token elsewhere.
             $response = Http::acceptJson()
+                ->withoutRedirecting()
                 ->withToken($token)
                 ->connectTimeout(config()->float('hootery.connect_timeout'))
                 ->timeout(config()->float('hootery.timeout'))
                 ->get(rtrim($url, '/').'/api/ping');
-        } catch (ConnectionException) {
-            $this->error("Could not reach the Hootery server at {$url}.");
+        } catch (ConnectionException $exception) {
+            $this->error("Could not reach the Hootery server at {$url}: {$exception->getMessage()}");
 
             return self::FAILURE;
         }
@@ -62,6 +64,13 @@ class TestConnectionCommand extends Command
 
         if (! $response->successful()) {
             $this->error("The Hootery server answered with HTTP {$response->status()}.");
+
+            return self::FAILURE;
+        }
+
+        // Only a Hootery answer counts: a wrong host can answer 200 too.
+        if (! is_string($response->json('project')) || ! is_string($response->json('environment'))) {
+            $this->error("The server at {$url} did not answer like a Hootery server (HTTP {$response->status()}).");
 
             return self::FAILURE;
         }

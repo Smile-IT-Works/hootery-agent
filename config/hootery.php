@@ -30,6 +30,7 @@ return [
 
     'ignore_paths' => [
         '_boost/*',
+        'up',
     ],
 
     /*
