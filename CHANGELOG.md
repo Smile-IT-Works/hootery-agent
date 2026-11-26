@@ -1,8 +1,5 @@
 # Release Notes
 
-## [Unreleased](https://github.com/Smile-IT-Works/hootery-agent/compare/v0.1.0...1.x)
-
-
-## [v0.1.0](https://github.com/Smile-IT-Works/hootery-agent/compare/...v0.1.0) - 202x-xx-xx
+## Unreleased
 
 Initial pre-release.
