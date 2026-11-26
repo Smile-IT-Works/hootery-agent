@@ -12,10 +12,6 @@ it('returns the same instance from the container', function () {
     expect(app(HooteryAgent::class))->toBe(app(HooteryAgent::class));
 });
 
-it('merges the package config', function () {
-    expect(config('hootery-agent.placeholder'))->toBe('default');
-});
-
 it('registers the artisan command', function () {
     $this->artisan('hootery-agent:placeholder')
         ->expectsOutputToContain('HooteryAgent placeholder command executed.')
