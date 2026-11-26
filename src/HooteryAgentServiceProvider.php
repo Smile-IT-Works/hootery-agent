@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Siw\HooteryAgent;
 
+use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Support\ServiceProvider;
 use Siw\HooteryAgent\Console\Commands\TestConnectionCommand;
 
@@ -24,6 +25,10 @@ class HooteryAgentServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->callAfterResolving(HttpKernel::class, function (HttpKernel $kernel): void {
+            $kernel->whenRequestLifecycleIsLongerThan(-1, $this->app->make(HooteryAgent::class)->requestFinished(...));
+        });
+
         if (! $this->app->runningInConsole()) {
             return;
         }

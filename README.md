@@ -48,9 +48,12 @@ HOOTERY_TOKEN=1|xxxxxxxx
 | `HOOTERY_ENABLED` | `true` | Switches the agent off for this environment when `false`. |
 | `HOOTERY_URL` | none | Base URL of the Hootery server. |
 | `HOOTERY_TOKEN` | none | The token issued for this project and environment. |
-| `HOOTERY_TIMEOUT` | `1.0` | Seconds one post to the server may take before it is given up. |
+| `HOOTERY_CONNECT_TIMEOUT` | `0.2` | Seconds to reach the server before the post is given up. |
+| `HOOTERY_TIMEOUT` | `0.5` | Seconds the whole post may take before it is given up. |
 
 The agent stays silent until it has both a URL and a token, so installing the package alone never affects the app.
+
+The agent posts each request's events after the response is sent, so visitors never wait for it, but the PHP worker that served the page does, for up to the timeouts above. A failed or slow post is dropped, never retried. On a busy production site, keep the timeouts low: until the agent batches its posts, a struggling Hootery server costs every page view up to that much worker time.
 
 Check the connection:
 
@@ -58,7 +61,9 @@ Check the connection:
 php artisan hootery:test
 ```
 
-It prints the project and environment the token belongs to, warns when that environment differs from the app's `APP_ENV`, and exits with a failure code when the agent is off, not set up, rejected or unreachable, so it can guard a deploy script.
+It prints the project and environment the token belongs to, warns when that environment differs from the app's `APP_ENV`, and exits with a failure code when the agent is off, not set up, rejected or unreachable. Add it to each environment's deploy script, so a wrong `HOOTERY_URL` or `HOOTERY_TOKEN` fails the deploy instead of leaving Hootery quietly empty.
+
+Once deployed, a post the server refuses or cannot receive is logged in the app's own log as `Hootery agent could not deliver events`, with the URL, status and error, at most once every ten minutes.
 
 ## Usage
 

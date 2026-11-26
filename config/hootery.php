@@ -23,10 +23,13 @@ return [
     'token' => env('HOOTERY_TOKEN'),
 
     /*
-    | Seconds one post to the server may take before it is given up, so a
-    | slow or unreachable server never holds up a worker for long.
+    | The post is sent after the response, so visitors never wait for it, but
+    | the worker that served the page does. These budgets cap that wait: the
+    | connect timeout bounds an unreachable server, the timeout a slow one.
     */
 
-    'timeout' => (float) env('HOOTERY_TIMEOUT', 1.0),
+    'connect_timeout' => (float) env('HOOTERY_CONNECT_TIMEOUT', 0.2),
+
+    'timeout' => (float) env('HOOTERY_TIMEOUT', 0.5),
 
 ];
