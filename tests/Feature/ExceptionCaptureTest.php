@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\View\ViewException;
 use Siw\HooteryAgent\HooteryAgent;
+use Symfony\Component\ErrorHandler\Error\FatalError;
 
 class IgnoredTestException extends RuntimeException {}
 
@@ -77,12 +78,17 @@ it('records the class, message, code and the app-relative place it was thrown', 
 });
 
 it('records a trace of places and calls, never argument values', function () {
-    $this->get('/boom');
+    // PHP keeps argument values in traces unless this is on, as on production.
+    ini_set('zend.exception_ignore_args', '0');
+    $charge = fn (string $cardNumber): never => throw new RuntimeException('Declined');
+    Route::get('/charge', fn () => $charge('4111-1111-1111-1111'));
+
+    $this->get('/charge');
 
     $trace = postedExceptions()[0]['payload']['trace'];
     expect($trace)->not->toBeEmpty()
         ->and($trace[0])->toHaveKeys(['file', 'call'])
-        ->and(json_encode($trace))->not->toContain('Deadlock found');
+        ->and(json_encode($trace))->not->toContain('4111-1111-1111-1111');
 });
 
 it('caps the trace at 50 frames', function () {
@@ -170,7 +176,7 @@ it('makes paths relative to the app, so traces do not carry the server layout', 
 
     $exception = postedExceptions()[0];
     expect($exception['payload']['file'])->toBe('tests/Feature/ExceptionCaptureTest.php')
-        ->and(json_encode($exception['payload']['trace']))->not->toContain(dirname(__DIR__, 2));
+        ->and(json_encode($exception['payload']['trace'], JSON_UNESCAPED_SLASHES))->not->toContain(dirname(__DIR__, 2));
 });
 
 it('leaves the app logging its own exceptions as before', function () {
@@ -220,4 +226,30 @@ it('records nothing in a console process, which has no request to send with', fu
 
     expect(postedExceptions())->toHaveCount(1)
         ->and(postedExceptions()[0]['message'])->toBe('Handled on the side');
+});
+
+it('sends a fatal error at once, as the request it ends never finishes', function () {
+    $fatal = new FatalError('Allowed memory size of 134217728 bytes exhausted', 0, ['type' => E_ERROR, 'message' => 'Allowed memory size exhausted', 'file' => __FILE__, 'line' => 1]);
+
+    app(ExceptionHandler::class)->report($fatal);
+
+    expect(postedExceptions())->toHaveCount(1)
+        ->and(postedExceptions()[0]['exception_class'])->toBe(FatalError::class);
+});
+
+it('keeps the server layout out of the trace of an anonymous class', function () {
+    app()->setBasePath(dirname(__DIR__, 2));
+    $component = new class
+    {
+        public function render(): never
+        {
+            throw new RuntimeException('Component broke');
+        }
+    };
+    Route::get('/component', fn () => $component->render());
+
+    $this->get('/component');
+
+    expect(json_encode(postedExceptions()[0]['payload']['trace'], JSON_UNESCAPED_SLASHES))->not->toContain(dirname(__DIR__, 2))
+        ->not->toContain('\u0000');
 });

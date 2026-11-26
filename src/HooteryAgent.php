@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\View\ViewException;
+use Symfony\Component\ErrorHandler\Error\FatalError;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -50,6 +51,12 @@ class HooteryAgent
     private ?string $traceId = null;
 
     /**
+     * When the app finished handling the current request, before the
+     * response is sent and the after-response work runs.
+     */
+    private ?CarbonInterface $handledAt = null;
+
+    /**
      * Whether the agent may send anything: it is switched on and knows the
      * server and this environment's token.
      */
@@ -79,9 +86,24 @@ class HooteryAgent
             if (count($this->events) > self::MAX_BUFFERED_EVENTS) {
                 array_shift($this->events);
             }
+
+            // A fatal error (memory, time limit) is reported at shutdown, and
+            // the request it ends never finishes, so nothing else would send.
+            if ($exception instanceof FatalError) {
+                $this->send();
+            }
         } catch (Throwable) {
             //
         }
+    }
+
+    /**
+     * Mark the moment the app has its response, so the request's duration
+     * leaves out sending it and the work that runs after it.
+     */
+    public function requestHandled(): void
+    {
+        $this->handledAt = now();
     }
 
     /**
@@ -90,13 +112,16 @@ class HooteryAgent
      */
     public function requestFinished(CarbonInterface $startedAt, Request $request, Response $response): void
     {
+        $handledAt = $this->handledAt ?? now();
+        $this->handledAt = null;
+
         try {
             if (! $this->isEnabled()) {
                 return;
             }
 
             if (! $request->is(...(array) config('hootery.ignore_paths', []))) {
-                $this->events[] = $this->requestEvent($startedAt, $request, $response);
+                $this->events[] = $this->requestEvent($startedAt, $handledAt, $request, $response);
             }
 
             if ($this->events !== []) {
@@ -115,7 +140,7 @@ class HooteryAgent
      *
      * @return array<string, mixed>
      */
-    private function requestEvent(CarbonInterface $startedAt, Request $request, Response $response): array
+    private function requestEvent(CarbonInterface $startedAt, CarbonInterface $handledAt, Request $request, Response $response): array
     {
         $route = $request->route();
         $realPath = '/'.ltrim($request->path(), '/');
@@ -127,7 +152,7 @@ class HooteryAgent
             'method' => $request->getMethod(),
             'path' => mb_substr($route instanceof Route ? '/'.ltrim($route->uri(), '/') : $realPath, 0, self::MAX_PATH_CHARACTERS),
             'status_code' => $response->getStatusCode(),
-            'duration_ms' => (int) round(abs($startedAt->diffInMilliseconds(now()))),
+            'duration_ms' => (int) round(abs($startedAt->diffInMilliseconds($handledAt))),
             'payload' => [
                 'url_path' => mb_substr($route instanceof Route ? $this->maskSecretParameters($realPath, $route) : $realPath, 0, self::MAX_PATH_CHARACTERS),
                 'route_name' => $route instanceof Route ? $route->getName() : null,
@@ -144,19 +169,32 @@ class HooteryAgent
     }
 
     /**
-     * The real path with the values of secret-looking route parameters (a
-     * password reset token, a signature) replaced by the parameter's name.
+     * The real path, or, when the route has a secret-looking parameter (a
+     * password reset token, a signature), the path rebuilt from the route
+     * pattern: each placeholder gets its parameter's value, except a secret
+     * one, which keeps its {name}. An optional parameter left out of the URL
+     * is left out here too.
      */
     private function maskSecretParameters(string $realPath, Route $route): string
     {
-        foreach ($route->originalParameters() as $name => $value) {
-            if (is_string($value) && $value !== '' && preg_match(self::SECRET_PARAMETER_PATTERN, $name) === 1) {
-                $realPath = str_replace('/'.rawurlencode($value), '/{'.$name.'}', $realPath);
-                $realPath = str_replace('/'.$value, '/{'.$name.'}', $realPath);
-            }
+        if (preg_grep(self::SECRET_PARAMETER_PATTERN, $route->parameterNames()) === []) {
+            return $realPath;
         }
 
-        return $realPath;
+        $parameters = $route->originalParameters();
+
+        $path = preg_replace_callback('#(/?)\{(\w+)\??\}#', function (array $placeholder) use ($parameters): string {
+            [, $slash, $name] = $placeholder;
+            $value = $parameters[$name] ?? null;
+
+            if (! is_scalar($value) || (string) $value === '') {
+                return '';
+            }
+
+            return $slash.(preg_match(self::SECRET_PARAMETER_PATTERN, $name) === 1 ? '{'.$name.'}' : (string) $value);
+        }, $route->uri());
+
+        return '/'.ltrim((string) $path, '/');
     }
 
     /**
@@ -218,7 +256,9 @@ class HooteryAgent
             'file' => isset($frame['file'])
                 ? $this->relativePath($frame['file']).(isset($frame['line']) ? ':'.$frame['line'] : '')
                 : '[internal]',
-            'call' => ($frame['class'] ?? '').($frame['type'] ?? '').$frame['function'].'()',
+            // A closure ({closure:/full/path.php:12}) and an anonymous class
+            // (class@anonymous\0/full/path.php:5) are named after their place.
+            'call' => str_replace([$this->basePrefix(), "\0"], ['', ' '], ($frame['class'] ?? '').($frame['type'] ?? '').$frame['function']).'()',
         ], array_slice($exception->getTrace(), 0, self::MAX_TRACE_FRAMES));
     }
 
@@ -228,7 +268,15 @@ class HooteryAgent
      */
     private function relativePath(string $path): string
     {
-        return Str::after($path, rtrim(base_path(), '/').'/');
+        return Str::after($path, $this->basePrefix());
+    }
+
+    /**
+     * The app's base path with its trailing slash, as it starts every path.
+     */
+    private function basePrefix(): string
+    {
+        return rtrim(base_path(), '/').'/';
     }
 
     /**
@@ -244,7 +292,9 @@ class HooteryAgent
         $url = rtrim((string) config('hootery.url'), '/').'/api/ingest';
 
         try {
+            // Never redirected: a redirect would carry the token elsewhere.
             $response = Http::acceptJson()
+                ->withoutRedirecting()
                 ->withToken((string) config('hootery.token'))
                 ->connectTimeout(config()->float('hootery.connect_timeout'))
                 ->timeout(config()->float('hootery.timeout'))
@@ -255,7 +305,8 @@ class HooteryAgent
             return;
         }
 
-        if ($response->failed()) {
+        // Only the ingest answer counts: a wrong host can answer 200 too.
+        if ($response->status() !== 202 || ! is_int($response->json('accepted'))) {
             $this->warnAboutFailedDelivery($url, $response->status(), $response->reason());
 
             return;

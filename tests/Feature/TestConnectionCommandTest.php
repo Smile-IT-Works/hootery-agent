@@ -65,10 +65,10 @@ it('reports a rejected token', function () {
 });
 
 it('reports a server it cannot reach', function () {
-    Http::fake(['*' => Http::failedConnection()]);
+    Http::fake(['*' => Http::failedConnection('Could not resolve host: hootery.example.com')]);
 
     $this->artisan('hootery:test')
-        ->expectsOutputToContain('Could not reach the Hootery server at https://hootery.example.com/.')
+        ->expectsOutputToContain('Could not reach the Hootery server at https://hootery.example.com/: Could not resolve host: hootery.example.com')
         ->assertFailed();
 });
 
@@ -77,5 +77,24 @@ it('reports any other answer by its status', function () {
 
     $this->artisan('hootery:test')
         ->expectsOutputToContain('The Hootery server answered with HTTP 500.')
+        ->assertFailed();
+});
+
+it('never follows a redirect, so the token goes to the configured server only', function () {
+    Http::fake(['*' => Http::response('', 301, ['Location' => 'https://elsewhere.example.com/api/ping'])]);
+
+    $this->artisan('hootery:test')
+        ->expectsOutputToContain('The Hootery server answered with HTTP 301.')
+        ->assertFailed();
+
+    expect(Http::recorded())->toHaveCount(1);
+});
+
+it('fails on an answer that is not a Hootery server\'s, such as a page from a wrong host', function () {
+    Http::fake(['*' => Http::response('<html>Welcome</html>', 200)]);
+
+    $this->artisan('hootery:test')
+        ->expectsOutputToContain('The server at https://hootery.example.com/ did not answer like a Hootery server (HTTP 200).')
+        ->doesntExpectOutputToContain('Connected')
         ->assertFailed();
 });

@@ -7,7 +7,9 @@ namespace Siw\HooteryAgent;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Foundation\Exceptions\Handler;
+use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Siw\HooteryAgent\Console\Commands\TestConnectionCommand;
 use Throwable;
@@ -36,6 +38,8 @@ class HooteryAgentServiceProvider extends ServiceProvider
                 $kernel->whenRequestLifecycleIsLongerThan(-1, $this->app->make(HooteryAgent::class)->requestFinished(...));
             }
         });
+
+        Event::listen(RequestHandled::class, fn () => $this->app->make(HooteryAgent::class)->requestHandled());
 
         // The callback returns nothing: returning false would stop the app's
         // own logging of the exception.
