@@ -117,4 +117,4 @@ Please review [our security policy](.github/SECURITY.md) on how to report securi
 
 ## License
 
-Proprietary. All rights reserved.
+The MIT License (MIT). See [LICENSE.md](LICENSE.md).
