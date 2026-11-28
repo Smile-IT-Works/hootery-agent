@@ -22,8 +22,8 @@ class TestConnectionCommand extends Command
 
     /**
      * Ask the server which project and environment the token belongs to.
-     * Every outcome other than a connection fails, so the command can guard a
-     * deploy script.
+     * Every outcome other than a connection fails, so a deploy script shows
+     * it; the script decides whether a failure stops the deploy.
      */
     public function handle(): int
     {

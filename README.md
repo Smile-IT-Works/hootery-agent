@@ -68,7 +68,11 @@ Check the connection:
 php artisan hootery:test
 ```
 
-It prints the project and environment the token belongs to, warns when that environment differs from the app's `APP_ENV`, and exits with a failure code when the agent is off, not set up, rejected or unreachable. Add it to each environment's deploy script, so a wrong `HOOTERY_URL` or `HOOTERY_TOKEN` fails the deploy instead of leaving Hootery quietly empty.
+It prints the project and environment the token belongs to, warns when that environment differs from the app's `APP_ENV`, and exits with a failure code when the agent is off, not set up, rejected or unreachable. Add it to each environment's deploy script as a warning, so a wrong `HOOTERY_URL` or `HOOTERY_TOKEN` shows up in the deploy output instead of leaving Hootery quietly empty, while a Hootery outage never stops a deploy:
+
+```bash
+php artisan hootery:test || true
+```
 
 Once deployed, any post that does not arrive (refused, unreachable, or failing for another reason) is logged in the app's own log as `Hootery agent could not deliver events`, with the URL, status and error, at most once every ten minutes.
 
